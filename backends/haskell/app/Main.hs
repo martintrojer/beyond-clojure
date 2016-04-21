@@ -1,10 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TemplateHaskell #-}
 module Main where
 
 import Control.Applicative
-import Database.Persist.Sqlite hiding (get)
 import Snap
 
 import App
