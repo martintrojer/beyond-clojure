@@ -92,10 +92,14 @@ fn main() {
             json::encode(&get_players(&req.db_conn())).unwrap()
         }
         post "/players" => |req| {
-            let player = req.json_as::<Player>().unwrap();
-            match create_player(&req.db_conn(), player.name, player.level) {
-                Ok(_) => (StatusCode::Created, "Created"),
-                Err(_) => (StatusCode::Conflict, "Conflict")
+            match req.json_as::<Player>() {
+                Ok(player) => {
+                    match create_player(&req.db_conn(), player.name, player.level) {
+                        Ok(_) => (StatusCode::Created, "Created"),
+                        Err(_) => (StatusCode::Conflict, "Conflict")
+                    }
+                }
+                Err(_) => (StatusCode::BadRequest, "Bad Request")
             }
         }
         get "/players/:player" => |req, mut res| {
