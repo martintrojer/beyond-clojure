@@ -94,6 +94,7 @@ fn main() {
             json::encode(&get_players(&req.db_conn())).unwrap()
         }
         post "/players" => |req, mut res| {
+            res.set(MediaType::Json);
             if &ContentType::json() == req.origin.headers.get::<ContentType>().unwrap() {
                 match req.json_as::<Player>() {
                     Ok(player) => {
@@ -101,13 +102,10 @@ fn main() {
                             Ok(_) => {
                                 let host = req.origin.headers.get::<Host>().unwrap();
                                 let port = host.port.map_or("".to_string(), |port| format!(":{}", port));
-                                res.set(Location(format!("http://{}{}{}/{}", host.hostname, port, req.origin.uri, player.name)))
-                                    .set(MediaType::Json);
+                                res.set(Location(format!("http://{}{}{}/{}", host.hostname, port, req.origin.uri, player.name)));
                                 (StatusCode::Created, json::encode(&player).unwrap())
                             }
-                            Err(_) => {
-                                (StatusCode::Conflict, "".to_string())
-                            }
+                            Err(_) => (StatusCode::Conflict, "".to_string())
                         }
                     }
                     Err(_) => (StatusCode::BadRequest, "".to_string())
