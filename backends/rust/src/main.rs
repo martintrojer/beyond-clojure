@@ -2,6 +2,7 @@ extern crate r2d2;
 extern crate rusqlite;
 #[macro_use]
 extern crate nickel;
+extern crate hyper;
 extern crate nickel_sqlite;
 extern crate rustc_serialize;
 
@@ -11,6 +12,7 @@ use rusqlite::{Connection, Row};
 use rusqlite::Error::SqliteFailure;
 
 use nickel::{Nickel, JsonBody, HttpRouter, MediaType};
+use hyper::header::{Host, Location};
 use nickel::status::StatusCode;
 
 use nickel_sqlite::{SqliteMiddleware, SqliteRequestExtensions};
@@ -91,15 +93,21 @@ fn main() {
             res.set(MediaType::Json);
             json::encode(&get_players(&req.db_conn())).unwrap()
         }
-        post "/players" => |req| {
+        post "/players" => |req, mut res| {
             match req.json_as::<Player>() {
                 Ok(player) => {
-                    match create_player(&req.db_conn(), player.name, player.level) {
-                        Ok(_) => (StatusCode::Created, "Created"),
-                        Err(_) => (StatusCode::Conflict, "Conflict")
+                    match create_player(&req.db_conn(), player.name.to_string(), player.level) {
+                        Ok(_) => {
+                            let host = req.origin.headers.get::<Host>().unwrap();
+                            let port = host.port.map_or("".to_string(), |port| format!(":{}", port));
+                            res.set(Location(format!("http://{}{}{}/{}", host.hostname, port, &req.origin.uri, player.name)))
+                                .set(MediaType::Json);
+                            (StatusCode::Created, json::encode(&player).unwrap())
+                        },
+                        Err(_) => (StatusCode::Conflict, "".to_string())
                     }
                 }
-                Err(_) => (StatusCode::BadRequest, "Bad Request")
+                Err(_) => (StatusCode::BadRequest, "".to_string())
             }
         }
         get "/players/:player" => |req, mut res| {

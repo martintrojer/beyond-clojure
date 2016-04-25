@@ -2,6 +2,7 @@
 name = "simple-backend"
 version = "0.1.0"
 dependencies = [
+ "hyper 0.6.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "nickel 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "nickel_sqlite 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "r2d2 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
