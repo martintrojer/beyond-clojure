@@ -127,7 +127,7 @@ fn main() {
         }
         post "/players" => |req, mut res| {
             res.set(MediaType::Json);
-            if &ContentType::json() == req.origin.headers.get::<ContentType>().unwrap() {
+            if Some(&ContentType::json()) == req.origin.headers.get::<ContentType>() {
                 match req.json_as::<Player>() {
                     Ok(player) => {
                         match create_player(&req.db_conn(), player.name.to_string(), player.level) {
