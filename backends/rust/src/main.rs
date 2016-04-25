@@ -100,7 +100,7 @@ fn main() {
                         Ok(_) => {
                             let host = req.origin.headers.get::<Host>().unwrap();
                             let port = host.port.map_or("".to_string(), |port| format!(":{}", port));
-                            res.set(Location(format!("http://{}{}{}/{}", host.hostname, port, &req.origin.uri, player.name)))
+                            res.set(Location(format!("http://{}{}{}/{}", host.hostname, port, req.origin.uri, player.name)))
                                 .set(MediaType::Json);
                             (StatusCode::Created, json::encode(&player).unwrap())
                         },
