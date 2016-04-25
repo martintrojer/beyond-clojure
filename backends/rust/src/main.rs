@@ -11,10 +11,11 @@ use r2d2::NopErrorHandler;
 use rusqlite::{Connection, Row};
 use rusqlite::Error::SqliteFailure;
 
-use nickel::{Nickel, Request, JsonBody, HttpRouter, MediaType};
-use hyper::header::{ContentType, Host, Location};
+use std::io::Write;
+use nickel::{Action, ErrorHandler, Nickel, Request, JsonBody, HttpRouter, MediaType};
 use nickel::status::StatusCode;
-
+use hyper::header::{ContentType, Host, Location};
+use nickel::NickelError;
 use nickel_sqlite::{SqliteMiddleware, SqliteRequestExtensions};
 
 use rustc_serialize::json;
@@ -84,6 +85,31 @@ fn url_for_request(req: &Request) -> String {
     format!("http://{}{}{}/", hostname, port, req.origin.uri)
 }
 
+#[derive(RustcDecodable, RustcEncodable)]
+struct APIStatusResponse {
+    status: String,
+}
+
+#[derive(Clone, Copy)]
+pub struct APIErrorHandler;
+
+impl<D> ErrorHandler<D> for APIErrorHandler {
+    fn handle_error(&self, err: &mut NickelError<D>, _req: &mut Request<D>) -> Action {
+        if let Some(ref mut res) = err.stream {
+            let status = res.status();
+            if status.is_client_error() || status.is_server_error() {
+                res.write_all(json::encode(&APIStatusResponse { status: status.to_string() })
+                                  .unwrap()
+                                  .as_bytes())
+                   .unwrap();
+            }
+        } else {
+            println!("Error: {}", err.message);
+        }
+        Action::Halt(())
+    }
+}
+
 fn main() {
     let mut server = Nickel::new();
 
@@ -127,7 +153,8 @@ fn main() {
                 None => (StatusCode::NotFound, "".to_string())
             }
         }
-        delete "/players/:player" => |req| {
+        delete "/players/:player" => |req, mut res| {
+            res.set(MediaType::Json);
             let player = req.param("player").unwrap();
             match delete_player(&req.db_conn(), player) {
                 Ok(1) => (StatusCode::NoContent, ""),
@@ -136,5 +163,6 @@ fn main() {
             }
         }
     });
+    server.handle_error(APIErrorHandler);
     server.listen("127.0.0.1:6767");
 }
