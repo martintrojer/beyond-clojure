@@ -116,23 +116,19 @@ fn main() {
             }
         }
         get "/players/:player" => |req, mut res| {
+            res.set(MediaType::Json);
             let player = req.param("player").unwrap();
             match get_player(&req.db_conn(), player) {
-                Some(player) => {
-                    res.set(MediaType::Json);
-                    json::encode(&player).unwrap()
-                },
-                None => {
-                    res.set(StatusCode::NotFound);
-                    "Not Found.".to_string()
-                }
+                Some(player) => (StatusCode::Ok, json::encode(&player).unwrap()),
+                None => (StatusCode::NotFound, "".to_string())
             }
         }
         delete "/players/:player" => |req| {
             let player = req.param("player").unwrap();
             match delete_player(&req.db_conn(), player) {
-                Ok(_) => (StatusCode::NoContent, ""),
-                Err(_) => (StatusCode::NotFound, "Not Found")
+                Ok(1) => (StatusCode::NoContent, ""),
+                Ok(0) => (StatusCode::NotFound, ""),
+                _ => (StatusCode::BadRequest, "")
             }
         }
     });
