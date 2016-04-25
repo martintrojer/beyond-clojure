@@ -12,7 +12,7 @@ use rusqlite::{Connection, Row};
 use rusqlite::Error::SqliteFailure;
 
 use nickel::{Nickel, JsonBody, HttpRouter, MediaType};
-use hyper::header::{Host, Location};
+use hyper::header::{ContentType, Host, Location};
 use nickel::status::StatusCode;
 
 use nickel_sqlite::{SqliteMiddleware, SqliteRequestExtensions};
@@ -94,20 +94,27 @@ fn main() {
             json::encode(&get_players(&req.db_conn())).unwrap()
         }
         post "/players" => |req, mut res| {
-            match req.json_as::<Player>() {
-                Ok(player) => {
-                    match create_player(&req.db_conn(), player.name.to_string(), player.level) {
-                        Ok(_) => {
-                            let host = req.origin.headers.get::<Host>().unwrap();
-                            let port = host.port.map_or("".to_string(), |port| format!(":{}", port));
-                            res.set(Location(format!("http://{}{}{}/{}", host.hostname, port, req.origin.uri, player.name)))
-                                .set(MediaType::Json);
-                            (StatusCode::Created, json::encode(&player).unwrap())
-                        },
-                        Err(_) => (StatusCode::Conflict, "".to_string())
+            if &ContentType::json() == req.origin.headers.get::<ContentType>().unwrap() {
+                match req.json_as::<Player>() {
+                    Ok(player) => {
+                        match create_player(&req.db_conn(), player.name.to_string(), player.level) {
+                            Ok(_) => {
+                                let host = req.origin.headers.get::<Host>().unwrap();
+                                let port = host.port.map_or("".to_string(), |port| format!(":{}", port));
+                                res.set(Location(format!("http://{}{}{}/{}", host.hostname, port, req.origin.uri, player.name)))
+                                    .set(MediaType::Json);
+                                (StatusCode::Created, json::encode(&player).unwrap())
+                            }
+                            Err(_) => {
+                                (StatusCode::Conflict, "".to_string())
+                            }
+                        }
                     }
+                    Err(_) => (StatusCode::BadRequest, "".to_string())
+
                 }
-                Err(_) => (StatusCode::BadRequest, "".to_string())
+            } else {
+                (StatusCode::UnsupportedMediaType, "".to_string())
             }
         }
         get "/players/:player" => |req, mut res| {
