@@ -106,7 +106,7 @@ fn main() {
                     Ok(player) => {
                         match create_player(&req.db_conn(), player.name.to_string(), player.level) {
                             Ok(_) => {
-                                res.set(Location(format!("{}{}", url_for_request(req), player.name)));
+                                res.set(Location(url_for_request(req) + &player.name));
                                 (StatusCode::Created, json::encode(&player).unwrap())
                             }
                             Err(_) => (StatusCode::Conflict, "".to_string())
