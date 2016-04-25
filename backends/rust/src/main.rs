@@ -11,7 +11,7 @@ use r2d2::NopErrorHandler;
 use rusqlite::{Connection, Row};
 use rusqlite::Error::SqliteFailure;
 
-use nickel::{Nickel, JsonBody, HttpRouter, MediaType};
+use nickel::{Nickel, Request, JsonBody, HttpRouter, MediaType};
 use hyper::header::{ContentType, Host, Location};
 use nickel::status::StatusCode;
 
@@ -78,6 +78,12 @@ fn migrate(db: &Connection) {
     }
 }
 
+fn url_for_request(req: &Request) -> String {
+    let Host { ref hostname, port } = *req.origin.headers.get::<Host>().unwrap();
+    let port = port.map_or("".to_string(), |port| format!(":{}", port));
+    format!("http://{}{}{}/", hostname, port, req.origin.uri)
+}
+
 fn main() {
     let mut server = Nickel::new();
 
@@ -100,9 +106,7 @@ fn main() {
                     Ok(player) => {
                         match create_player(&req.db_conn(), player.name.to_string(), player.level) {
                             Ok(_) => {
-                                let host = req.origin.headers.get::<Host>().unwrap();
-                                let port = host.port.map_or("".to_string(), |port| format!(":{}", port));
-                                res.set(Location(format!("http://{}{}{}/{}", host.hostname, port, req.origin.uri, player.name)));
+                                res.set(Location(format!("{}{}", url_for_request(req), (player.name))));
                                 (StatusCode::Created, json::encode(&player).unwrap())
                             }
                             Err(_) => (StatusCode::Conflict, "".to_string())
