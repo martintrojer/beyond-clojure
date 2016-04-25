@@ -1,0 +1,15 @@
+[package]
+name = "simple-backend"
+version = "0.1.0"
+authors = ["Håkan Råberg <hraberg@yahoo.se>"]
+
+[dependencies]
+nickel = "0.7.3"
+nickel_sqlite = "0.0.4"
+r2d2 = "0.6"
+rusqlite = "0.6"
+rustc-serialize = "0.3"
+
+[dependencies.hyper]
+version = "=0.6"
+default-features = false
