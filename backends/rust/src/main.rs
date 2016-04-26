@@ -11,10 +11,11 @@ use r2d2::NopErrorHandler;
 use rusqlite::{Connection, Row};
 use rusqlite::Error::SqliteFailure;
 
-use nickel::{Nickel, JsonBody, HttpRouter, MediaType};
-use hyper::header::{Host, Location};
+use std::io::Write;
+use nickel::{Action, ErrorHandler, Nickel, Request, JsonBody, HttpRouter, MediaType};
 use nickel::status::StatusCode;
-
+use hyper::header::{ContentType, Host, Location};
+use nickel::NickelError;
 use nickel_sqlite::{SqliteMiddleware, SqliteRequestExtensions};
 
 use rustc_serialize::json;
@@ -78,6 +79,37 @@ fn migrate(db: &Connection) {
     }
 }
 
+fn url_for_request(req: &Request) -> String {
+    let Host { ref hostname, port } = *req.origin.headers.get::<Host>().unwrap();
+    let port = port.map_or("".to_string(), |port| format!(":{}", port));
+    format!("http://{}{}{}/", hostname, port, req.origin.uri)
+}
+
+#[derive(RustcDecodable, RustcEncodable)]
+struct APIStatusResponse {
+    status: String,
+}
+
+#[derive(Clone, Copy)]
+pub struct APIErrorHandler;
+
+impl<D> ErrorHandler<D> for APIErrorHandler {
+    fn handle_error(&self, err: &mut NickelError<D>, _req: &mut Request<D>) -> Action {
+        if let Some(ref mut res) = err.stream {
+            let status = res.status();
+            if status.is_client_error() || status.is_server_error() {
+                res.write_all(json::encode(&APIStatusResponse { status: status.to_string() })
+                                  .unwrap()
+                                  .as_bytes())
+                   .unwrap();
+            }
+        } else {
+            println!("Error: {}", err.message);
+        }
+        Action::Halt(())
+    }
+}
+
 fn main() {
     let mut server = Nickel::new();
 
@@ -94,42 +126,43 @@ fn main() {
             json::encode(&get_players(&req.db_conn())).unwrap()
         }
         post "/players" => |req, mut res| {
-            match req.json_as::<Player>() {
-                Ok(player) => {
-                    match create_player(&req.db_conn(), player.name.to_string(), player.level) {
-                        Ok(_) => {
-                            let host = req.origin.headers.get::<Host>().unwrap();
-                            let port = host.port.map_or("".to_string(), |port| format!(":{}", port));
-                            res.set(Location(format!("http://{}{}{}/{}", host.hostname, port, &req.origin.uri, player.name)))
-                                .set(MediaType::Json);
-                            (StatusCode::Created, json::encode(&player).unwrap())
-                        },
-                        Err(_) => (StatusCode::Conflict, "".to_string())
+            res.set(MediaType::Json);
+            if Some(&ContentType::json()) == req.origin.headers.get::<ContentType>() {
+                match req.json_as::<Player>() {
+                    Ok(player) => {
+                        match create_player(&req.db_conn(), player.name.to_string(), player.level) {
+                            Ok(_) => {
+                                res.set(Location(url_for_request(req) + &player.name));
+                                (StatusCode::Created, json::encode(&player).unwrap())
+                            }
+                            Err(_) => (StatusCode::Conflict, "".to_string())
+                        }
                     }
+                    Err(_) => (StatusCode::BadRequest, "".to_string())
+
                 }
-                Err(_) => (StatusCode::BadRequest, "".to_string())
+            } else {
+                (StatusCode::UnsupportedMediaType, "".to_string())
             }
         }
         get "/players/:player" => |req, mut res| {
+            res.set(MediaType::Json);
             let player = req.param("player").unwrap();
             match get_player(&req.db_conn(), player) {
-                Some(player) => {
-                    res.set(MediaType::Json);
-                    json::encode(&player).unwrap()
-                },
-                None => {
-                    res.set(StatusCode::NotFound);
-                    "Not Found.".to_string()
-                }
+                Some(player) => (StatusCode::Ok, json::encode(&player).unwrap()),
+                None => (StatusCode::NotFound, "".to_string())
             }
         }
-        delete "/players/:player" => |req| {
+        delete "/players/:player" => |req, mut res| {
+            res.set(MediaType::Json);
             let player = req.param("player").unwrap();
             match delete_player(&req.db_conn(), player) {
-                Ok(_) => (StatusCode::NoContent, ""),
-                Err(_) => (StatusCode::NotFound, "Not Found")
+                Ok(1) => (StatusCode::NoContent, ""),
+                Ok(0) => (StatusCode::NotFound, ""),
+                _ => (StatusCode::BadRequest, "")
             }
         }
     });
+    server.handle_error(APIErrorHandler);
     server.listen("127.0.0.1:6767");
 }
