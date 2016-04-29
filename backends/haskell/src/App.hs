@@ -24,11 +24,15 @@ notFound :: Handler App App ()
 notFound = modifyResponse $ setResponseStatus 404 "Not found"
 
 getPlayer' :: Handler App App (Maybe Player)
-getPlayer' = do
-  player <- runMaybeT $ do
+getPlayer' =
+  runMaybeT $ do
     param <- MaybeT $ getParam "player"
     MaybeT . runPersist . getPlayer $ BS.unpack param
-  return player
+
+addCors :: Handler App App ()
+addCors = do
+  modifyResponse $ addHeader "Access-Control-Allow-Origin" "*"
+  modifyResponse $ addHeader "Access-Control-Allow-Methods" "GET, DELETE, POST, OPTIONS"
 
 getPlayersHandler :: Handler App App ()
 getPlayersHandler = do
