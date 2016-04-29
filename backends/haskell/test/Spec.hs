@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Spec where
+module Main where
 
 import Data.Text
 import qualified Data.ByteString.Char8 as BS
