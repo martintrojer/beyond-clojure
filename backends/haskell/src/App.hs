@@ -1,11 +1,14 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module App where
 
+import Control.Monad
 import Control.Lens
 import Control.Monad.Trans.Maybe
+import Data.Aeson
 import qualified Data.ByteString.Char8 as BS
 import Snap
 import Snap.Extras.JSON
@@ -22,6 +25,9 @@ instance HasPersistPool (Handler a App) where
 
 notFound :: Handler App App ()
 notFound = modifyResponse $ setResponseStatus 404 "Not found"
+
+error400 :: String -> Handler App App ()
+error400 err = modifyResponse $ setResponseStatus 400 (BS.pack err)
 
 getPlayer' :: Handler App App (Maybe Player)
 getPlayer' =
@@ -46,15 +52,26 @@ getPlayerHandler = do
     Just p -> writeJSON p
     Nothing -> notFound
 
+data CreateParams =
+  CreateParams { level :: Int }
+  deriving(Show)
+
+instance FromJSON CreateParams where
+  parseJSON (Object v) =
+    CreateParams <$> v .: "level"
+  parseJSON _ = mzero
+
 createPlayerHandler :: Handler App App ()
 createPlayerHandler = do
   player <- getPlayer'
   name <- getParam "player"
-  level <- getPostParam "level"
-  case (player, name, level) of
-    (Nothing, Just n, Just l) -> do
-      runPersist $ createPlayer (BS.unpack n) $ read (BS.unpack l)
+  body :: Either String CreateParams <- getJSON
+  case (player, name, body) of
+    (Nothing, Just n, Right params) -> do
+      runPersist $ createPlayer (BS.unpack n) $ level params
       modifyResponse $ setResponseStatus 201 "Created"
+    (Nothing, _, Left err) ->
+      error400 err
     (Just _, _, _) -> modifyResponse $ setResponseStatus 400 "Player exists"
     _ -> notFound
 
