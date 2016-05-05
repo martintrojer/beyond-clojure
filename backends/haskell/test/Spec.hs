@@ -21,8 +21,8 @@ appInit = makeSnaplet "app" "a player db backend" Nothing $ do
   return $ App d
 
 main :: IO ()
-main = hspec $ do
-  describe "basic endpoints" $ do
+main = hspec $
+  describe "basic endpoints" $
     it "get all players" $ do
       res <- ST.runHandler Nothing (get (BS.pack "") M.empty) getPlayersHandler appInit
       case res of
@@ -30,4 +30,4 @@ main = hspec $ do
         Right resp -> do
           assertSuccess resp
           body <- getResponseBody resp
-          body `shouldBe` "[{\"name\":\"Aki\",\"level\":3},{\"name\":\"Lance\",\"level\":1},{\"name\":\"Maria\",\"level\":4},{\"name\":\"Sally\",\"level\":2}]"
+          body `shouldBe` "[{\"name\":\"Aki\",\"id\":3,\"level\":3},{\"name\":\"Lance\",\"id\":2,\"level\":1},{\"name\":\"Maria\",\"id\":4,\"level\":4},{\"name\":\"Sally\",\"id\":1,\"level\":2}]"

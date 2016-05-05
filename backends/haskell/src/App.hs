@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -5,13 +6,13 @@
 
 module App where
 
-import Control.Monad
 import Control.Lens
 import Control.Monad.Trans.Maybe
 import Data.Aeson
 import qualified Data.ByteString.Char8 as BS
 import Snap
 import Snap.Extras.JSON
+import GHC.Generics
 
 import SqliteSnaplet
 import Model
@@ -29,16 +30,18 @@ notFound = modifyResponse $ setResponseStatus 404 "Not found"
 error400 :: String -> Handler App App ()
 error400 err = modifyResponse $ setResponseStatus 400 (BS.pack err)
 
-getPlayer' :: Handler App App (Maybe Player)
+getPlayer' :: Handler App App (Maybe PlayerWKey)
 getPlayer' =
   runMaybeT $ do
-    param <- MaybeT $ getParam "player"
-    MaybeT . runPersist . getPlayer $ BS.unpack param
+    param <- MaybeT $ getParam "id"
+    MaybeT . runPersist . getPlayer . read . BS.unpack $ param
 
 addCors :: Handler App App ()
 addCors = do
   modifyResponse $ addHeader "Access-Control-Allow-Origin" "*"
-  modifyResponse $ addHeader "Access-Control-Allow-Methods" "GET, DELETE, POST, OPTIONS"
+  modifyResponse $ addHeader "Access-Control-Allow-Methods" "GET, DELETE, POST, PUT, OPTIONS"
+  modifyResponse $ addHeader "Access-Control-Allow-Credentials" "true"
+  modifyResponse $ addHeader "Access-Control-Allow-Headers" "Content-Type, authorization, Origin, Host, User-Agent, Access-Control-Request-Headers, Referer, Connection, Accept, Accept-Language, Access-Control-Request-Method, X-Forwarded-For, Accept-Encoding, X-Real-Ip"
 
 getPlayersHandler :: Handler App App ()
 getPlayersHandler = do
@@ -53,26 +56,36 @@ getPlayerHandler = do
     Nothing -> notFound
 
 data CreateParams =
-  CreateParams { level :: Int }
-  deriving(Show)
+  CreateParams { name :: String
+               , level :: Int }
+  deriving(Show, Generic)
 
-instance FromJSON CreateParams where
-  parseJSON (Object v) =
-    CreateParams <$> v .: "level"
-  parseJSON _ = mzero
+instance FromJSON CreateParams
 
 createPlayerHandler :: Handler App App ()
 createPlayerHandler = do
   player <- getPlayer'
-  name <- getParam "player"
   body :: Either String CreateParams <- getJSON
-  case (player, name, body) of
-    (Nothing, Just n, Right params) -> do
-      runPersist $ createPlayer (BS.unpack n) $ level params
+  case (player, body) of
+    (Nothing, Right (CreateParams n l)) -> do
+      newPlayer <- runPersist $ createPlayer n l
       modifyResponse $ setResponseStatus 201 "Created"
-    (Nothing, _, Left err) ->
+      writeJSON newPlayer
+    (Nothing, Left err) ->
       error400 err
-    (Just _, _, _) -> modifyResponse $ setResponseStatus 400 "Player exists"
+    (Just _, _) -> modifyResponse $ setResponseStatus 400 "Player exists"
+
+updatePlayerHandler :: Handler App App ()
+updatePlayerHandler = do
+  player <- getPlayer'
+  body :: Either String CreateParams <- getJSON
+  case (player, body) of
+    (Just (PlayerWKey i _ _), Right (CreateParams n l)) -> do
+      newPlayer <- runPersist $ updatePlayer i n l
+      modifyResponse $ setResponseStatus 200 "Updated"
+      writeJSON newPlayer
+    (Just _, Left err) ->
+      error400 err
     _ -> notFound
 
 deletePlayerHandler :: Handler App App ()
@@ -80,6 +93,7 @@ deletePlayerHandler = do
   player <- getPlayer'
   case player of
     Just p -> do
-      _ <- runPersist . deletePlayer $ playerName p
-      modifyResponse $ setResponseStatus 204 ""
+      _ <- runPersist . deletePlayer $ Model.id p
+      modifyResponse $ setResponseStatus 200 "Deleted"
+      writeJSON p
     Nothing -> notFound

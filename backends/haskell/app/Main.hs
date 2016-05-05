@@ -12,10 +12,13 @@ import SqliteSnaplet
 appInit :: SnapletInit App App
 appInit = makeSnaplet "app" "a player db backend" Nothing $ do
   addRoutes [ ("", ifTop $ writeText "Welcome to the Players API v0.1")
-            , ("players", method GET getPlayersHandler <* addCors)
-            , ("players/:player", method GET getPlayerHandler <* addCors <|>
-                                  method POST createPlayerHandler <* addCors <|>
-                                  method DELETE deletePlayerHandler <* addCors)
+            , ("players", method GET getPlayersHandler <* addCors <|>
+                          method POST createPlayerHandler <* addCors <|>
+                          method OPTIONS addCors)
+            , ("players/:id", method GET getPlayerHandler <* addCors <|>
+                              method PUT updatePlayerHandler <* addCors <|>
+                              method DELETE deletePlayerHandler <* addCors <|>
+                              method OPTIONS addCors)
             ]
   d <- nestSnaplet "db" db $ initSqlite setupDB
   return $ App d
