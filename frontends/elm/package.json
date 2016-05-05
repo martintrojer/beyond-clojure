@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "summary": "webpack for Elm tutorial",
+  "repository": "https://github.com/user/project.git",
+  "dependencies": {
+    "webpack": "latest",
+    "webpack-dev-middleware": "latest",
+    "webpack-dev-server": "latest",
+    "elm-webpack-loader": "latest",
+    "file-loader": "latest",
+    "style-loader": "latest",
+    "css-loader": "latest",
+    "url-loader": "latest",
+    "basscss": "7",
+    "font-awesome": "latest"
+  },
+  "scripts": {
+    "build": "webpack",
+    "watch": "webpack --watch",
+    "dev": "webpack-dev-server --port 3000"
+  }
+}
