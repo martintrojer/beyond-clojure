@@ -1,75 +1,43 @@
-module Main (..) where
+module Main exposing (..)
 
-import Html exposing (..)
-import Task
-import StartApp
-import Effects exposing (Effects, Never)
-import Actions exposing (..)
-import Models exposing (..)
-import Update exposing (..)
-import View exposing (..)
-import Mailboxes exposing (..)
-import Routing
-import Players.Effects
-import Players.Actions
+import Navigation
+import Messages exposing (Msg(..))
+import Models exposing (Model, initialModel)
+import View exposing (view)
+import Update exposing (update)
+import Players.Commands exposing (fetchAll)
+import Routing exposing (Route)
 
 
-init : ( AppModel, Effects Action )
-init =
-  let
-    fxs =
-      [ Effects.map PlayersAction Players.Effects.fetchAll ]
-
-    fx =
-      Effects.batch fxs
-  in
-    ( initialModel, fx )
+init : Result String Route -> ( Model, Cmd Msg )
+init result =
+    let
+        currentRoute =
+            Routing.routeFromResult result
+    in
+        ( initialModel currentRoute, Cmd.map PlayersMsg fetchAll )
 
 
-routerSignal : Signal Action
-routerSignal =
-  Signal.map RoutingAction Routing.signal
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
 
 
-app : StartApp.App AppModel
-app =
-  StartApp.start
-    { init = init
-    , inputs = [ routerSignal, actionsMailbox.signal, getDeleteConfirmationSignal ]
-    , update = update
-    , view = view
-    }
+urlUpdate : Result String Route -> Model -> ( Model, Cmd Msg )
+urlUpdate result model =
+    let
+        currentRoute =
+            Routing.routeFromResult result
+    in
+        ( { model | route = currentRoute }, Cmd.none )
 
 
-getDeleteConfirmationSignal : Signal Actions.Action
-getDeleteConfirmationSignal =
-  let
-    toAction id =
-      id
-        |> Players.Actions.DeletePlayer
-        |> PlayersAction
-  in
-    Signal.map toAction getDeleteConfirmation
-
-
-main : Signal.Signal Html
+main : Program Never
 main =
-  app.html
-
-
-port routeRunTask : Task.Task () ()
-port routeRunTask =
-  Routing.run
-
-
-port askDeleteConfirmation : Signal ( Int, String )
-port askDeleteConfirmation =
-  askDeleteConfirmationMailbox.signal
-
-
-port getDeleteConfirmation : Signal Int
-
-
-port runner : Signal (Task.Task Never ())
-port runner =
-  app.tasks
+    Navigation.program Routing.parser
+        { init = init
+        , view = view
+        , update = update
+        , urlUpdate = urlUpdate
+        , subscriptions = subscriptions
+        }

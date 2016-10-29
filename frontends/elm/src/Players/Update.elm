@@ -1,177 +1,55 @@
-module Players.Update (..) where
+module Players.Update exposing (..)
 
-import Effects exposing (Effects)
-import Players.Actions exposing (..)
-import Players.Effects exposing (..)
-import Players.Models exposing (..)
-import Task
-import Hop.Navigate exposing (navigateTo)
-import Debug exposing (log)
+import Players.Messages exposing (Msg(..))
+import Players.Models exposing (Player, PlayerId)
+import Players.Commands exposing (save)
+import Navigation
 
 
-type alias UpdateModel =
-  { players : List Player
-  , showErrorAddress : Signal.Address String
-  , deleteConfirmationAddress : Signal.Address ( PlayerId, String )
-  }
+changeLevelCommands : PlayerId -> Int -> List Player -> List (Cmd Msg)
+changeLevelCommands playerId howMuch players =
+    let
+        cmdForPlayer existingPlayer =
+            if existingPlayer.id == playerId then
+                save { existingPlayer | level = existingPlayer.level + howMuch }
+            else
+                Cmd.none
+    in
+        List.map cmdForPlayer players
 
 
-update : Action -> UpdateModel -> ( List Player, Effects Action )
-update action model =
-  case action of
-    EditPlayer id ->
-      let
-        path =
-          "/players/" ++ (toString id) ++ "/edit"
-      in
-        ( model.players, Effects.map HopAction (navigateTo path) )
+updatePlayer : Player -> List Player -> List Player
+updatePlayer updatedPlayer players =
+    let
+        select existingPlayer =
+            if existingPlayer.id == updatedPlayer.id then
+                updatedPlayer
+            else
+                existingPlayer
+    in
+        List.map select players
 
-    ListPlayers ->
-      ( model.players, Effects.map HopAction (navigateTo "/players") )
 
-    HopAction _ ->
-      ( model.players, Effects.none )
+update : Msg -> List Player -> ( List Player, Cmd Msg )
+update message players =
+    case message of
+        FetchAllDone newPlayers ->
+            ( newPlayers, Cmd.none )
 
-    FetchAllDone res ->
-      case res of
-        Ok players ->
-          ( players, Effects.none )
+        FetchAllFail error ->
+            ( players, Cmd.none )
 
-        Err error ->
-          let
-            errorMessage =
-              toString error
+        ShowPlayers ->
+            ( players, Navigation.newUrl "#players" )
 
-            fx =
-              Signal.send model.showErrorAddress errorMessage
-                |> Effects.task
-                |> Effects.map TaskDone
-          in
-            ( model.players, fx )
+        ShowPlayer id ->
+            ( players, Navigation.newUrl ("#players/" ++ (toString id)) )
 
-    CreatePlayer ->
-      ( model.players, createPlayer new )
+        ChangeLevel id howMuch ->
+            ( players, changeLevelCommands id howMuch players |> Cmd.batch )
 
-    CreatePlayerDone result ->
-      case result of
-        Ok player ->
-          let
-            updatedCollection =
-              player :: model.players
+        SaveSuccess updatedPlayer ->
+            ( updatePlayer updatedPlayer players, Cmd.none )
 
-            fx =
-              Task.succeed (EditPlayer player.id)
-                |> Effects.task
-          in
-            ( updatedCollection, fx )
-
-        Err error ->
-          let
-            fx =
-              Signal.send model.showErrorAddress (toString error)
-                |> Effects.task
-                |> Effects.map TaskDone
-          in
-            ( model.players, fx )
-
-    ChangeName playerId newName ->
-      let
-        fxForPlayer player =
-          if player.id /= playerId then
-            Effects.none
-          else
-            let
-              updatedPlayer =
-                { player | name = newName }
-            in
-              updatePlayer updatedPlayer
-
-        fx =
-          List.map fxForPlayer model.players
-            |> Effects.batch
-      in
-        ( model.players, fx )
-
-    ChangeLevel playerId howMuch ->
-      let
-        fxForPlayer player =
-          if player.id /= playerId then
-            Effects.none
-          else if player.level + howMuch <= 0 then
-            Effects.none
-          else
-            let
-              updatedPlayer =
-                { player | level = player.level + howMuch }
-            in
-              updatePlayer updatedPlayer
-
-        fx =
-          List.map fxForPlayer model.players
-            |> Effects.batch
-      in
-        ( model.players, fx )
-
-    SaveDone result ->
-      case result of
-        Ok player ->
-          let
-            updatedCollection =
-              List.map
-                (\p ->
-                  if p.id == player.id then
-                    player
-                  else
-                    p
-                )
-                model.players
-          in
-            ( updatedCollection, Effects.none )
-
-        Err error ->
-          let
-            fx =
-              Signal.send model.showErrorAddress (toString error)
-                |> Effects.task
-                |> Effects.map TaskDone
-          in
-            ( model.players, fx )
-
-    DeletePlayerIntent player ->
-      let
-        msg =
-          "Are you sure you want to delete " ++ player.name ++ "?"
-
-        fx =
-          Signal.send model.deleteConfirmationAddress ( player.id, msg )
-            |> Effects.task
-            |> Effects.map TaskDone
-      in
-        ( model.players, fx )
-
-    DeletePlayer playerId ->
-      ( model.players, deletePlayer playerId )
-
-    DeletePlayerDone playerId result ->
-      case result of
-        Ok _ ->
-          let
-            newPlayers =
-              List.filter (\p -> p.id /= playerId) model.players
-          in
-            ( newPlayers, Effects.none )
-
-        Err error ->
-          let
-            fx =
-              Signal.send model.showErrorAddress (toString error)
-                |> Effects.task
-                |> Effects.map TaskDone
-          in
-            ( model.players, fx )
-
-    TaskDone () ->
-      ( model.players, Effects.none )
-
-    NoOp ->
-      ( model.players, Effects.none )
+        SaveFail error ->
+            ( players, Cmd.none )

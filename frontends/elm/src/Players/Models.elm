@@ -1,20 +1,20 @@
-module Players.Models (..) where
+module Players.Models exposing (..)
 
 
 type alias PlayerId =
-  Int
+    Int
 
 
 type alias Player =
-  { id : PlayerId
-  , name : String
-  , level : Int
-  }
+    { id : PlayerId
+    , name : String
+    , level : Int
+    }
 
 
 new : Player
 new =
-  { name = "change me"
-  , level = 1
-  , id = 1
-  }
+    { id = 0
+    , name = ""
+    , level = 1
+    }

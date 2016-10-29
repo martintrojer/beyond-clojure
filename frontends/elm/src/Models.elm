@@ -1,19 +1,17 @@
-module Models (..) where
+module Models exposing (..)
 
 import Players.Models exposing (Player)
 import Routing
 
 
-type alias AppModel =
-  { players : List Player
-  , routing : Routing.Model
-  , errorMessage : String
-  }
+type alias Model =
+    { players : List Player
+    , route : Routing.Route
+    }
 
 
-initialModel : AppModel
-initialModel =
-  { players = [ ]
-  , routing = Routing.initialModel
-  , errorMessage = ""
-  }
+initialModel : Routing.Route -> Model
+initialModel route =
+    { players = []
+    , route = route
+    }

@@ -1,87 +1,52 @@
-module View (..) where
+module View exposing (..)
 
-import Html exposing (..)
-import Actions exposing (..)
-import Models exposing (..)
-import Html.Attributes exposing (class)
-import String
-import Routing
+import Html exposing (Html, div, text)
+import Html.App
+import Messages exposing (Msg(..))
+import Models exposing (Model)
 import Players.List
 import Players.Edit
 import Players.Models exposing (PlayerId)
+import Routing exposing (Route(..))
 
 
-view : Signal.Address Action -> AppModel -> Html
-view address model =
-  let
-    _ =
-      Debug.log "model" model
-  in
-    div
-      []
-      [ flash address model
-      , page address model
-      ]
+view : Model -> Html Msg
+view model =
+    div []
+        [ page model ]
 
 
-flash : Signal.Address Action -> AppModel -> Html
-flash address model =
-  if String.isEmpty model.errorMessage then
-    span [] []
-  else
-    div
-      [ class "bold center p2 mb2 white bg-red rounded"
-      ]
-      [ text model.errorMessage ]
+page : Model -> Html Msg
+page model =
+    case model.route of
+        PlayersRoute ->
+            Html.App.map PlayersMsg (Players.List.view model.players)
+
+        PlayerRoute id ->
+            playerEditPage model id
+
+        NotFoundRoute ->
+            notFoundView
 
 
-page : Signal.Address Action -> AppModel -> Html
-page address model =
-  case model.routing.route of
-    Routing.PlayersRoute ->
-      playersPage address model
+playerEditPage : Model -> PlayerId -> Html Msg
+playerEditPage model playerId =
+    let
+        maybePlayer =
+            model.players
+                |> List.filter (\player -> player.id == playerId)
+                |> List.head
+    in
+        case maybePlayer of
+            Just player ->
+                Html.App.map PlayersMsg (Players.Edit.view player)
 
-    Routing.PlayerEditRoute playerId ->
-      playerEditPage address model playerId
-
-    Routing.NotFoundRoute ->
-      notFoundView
-
-
-playersPage : Signal.Address Action -> AppModel -> Html.Html
-playersPage address model =
-  let
-    viewModel =
-      { players = model.players
-      }
-  in
-    Players.List.view (Signal.forwardTo address PlayersAction) viewModel
+            Nothing ->
+                notFoundView
 
 
-playerEditPage : Signal.Address Action -> AppModel -> PlayerId -> Html.Html
-playerEditPage address model playerId =
-  let
-    maybePlayer =
-      model.players
-        |> List.filter (\player -> player.id == playerId)
-        |> List.head
-  in
-    case maybePlayer of
-      Just player ->
-        let
-          viewModel =
-            { player = player
-            }
-        in
-          Players.Edit.view (Signal.forwardTo address PlayersAction) viewModel
-
-      Nothing ->
-        notFoundView
-
-
-notFoundView : Html.Html
+notFoundView : Html msg
 notFoundView =
-  div
-    []
-    [ text "Not found"
-    ]
+    div []
+        [ text "Not found"
+        ]

@@ -1,109 +1,64 @@
-module Players.Edit (..) where
+module Players.Edit exposing (..)
 
 import Html exposing (..)
-import Html.Events exposing (on, onClick, targetValue)
 import Html.Attributes exposing (class, value, href)
+import Html.Events exposing (onClick)
 import Players.Models exposing (..)
-import Players.Actions exposing (..)
+import Players.Messages exposing (..)
 
 
-type alias ViewModel =
-  { player : Player
-  }
-
-
-view : Signal.Address Action -> ViewModel -> Html.Html
-view address model =
-  div
-    []
-    [ nav address model
-    , form address model
-    ]
-
-
-listBtn : Signal.Address Action -> ViewModel -> Html.Html
-listBtn address model =
-  button
-    [ class "btn regular"
-    , onClick address ListPlayers
-    ]
-    [ i [ class "fa fa-chevron-left mr1" ] [], text "List" ]
-
-
-nav : Signal.Address Action -> ViewModel -> Html.Html
-nav address model =
-  div
-    [ class "clearfix mb2 white bg-black p1" ]
-    [ listBtn address model ]
-
-
-form : Signal.Address Action -> ViewModel -> Html.Html
-form address model =
-  div
-    [ class "m3" ]
-    [ h1 [] [ text model.player.name ]
-    , formLevel address model
-    , formName address model
-    ]
-
-
-formLevel : Signal.Address Action -> ViewModel -> Html.Html
-formLevel address model =
-  div
-    [ class "clearfix py1"
-    ]
-    [ div [ class "col col-5" ] [ text "Level" ]
-    , div
-        [ class "col col-7" ]
-        [ span [ class "h2 bold" ] [ text (toString model.player.level) ]
-        , btnLevelDecrease address model
-        , btnLevelIncrease address model
+view : Player -> Html.Html Msg
+view model =
+    div []
+        [ nav model
+        , form model
         ]
-    ]
 
 
-btnLevelDecrease : Signal.Address Action -> ViewModel -> Html.Html
-btnLevelDecrease address model =
-  a
-    [ class "btn ml1 h1" ]
-    [ i
-        [ class "fa fa-minus-circle"
-        , onClick address (ChangeLevel model.player.id -1)
+nav : Player -> Html.Html Msg
+nav model =
+    div [ class "clearfix mb2 white bg-black p1" ]
+        [ listBtn ]
+
+
+form : Player -> Html.Html Msg
+form player =
+    div [ class "m3" ]
+        [ h1 [] [ text player.name ]
+        , formLevel player
         ]
-        []
-    ]
 
 
-btnLevelIncrease : Signal.Address Action -> ViewModel -> Html.Html
-btnLevelIncrease address model =
-  a
-    [ class "btn ml1 h1" ]
-    [ i
-        [ class "fa fa-plus-circle"
-        , onClick address (ChangeLevel model.player.id 1)
+formLevel : Player -> Html.Html Msg
+formLevel player =
+    div
+        [ class "clearfix py1"
         ]
-        []
-    ]
-
-
-formName : Signal.Address Action -> ViewModel -> Html.Html
-formName address model =
-  div
-    [ class "clearfix py1"
-    ]
-    [ div [ class "col col-5" ] [ text "Name" ]
-    , div
-        [ class "col col-7" ]
-        [ inputName address model
+        [ div [ class "col col-5" ] [ text "Level" ]
+        , div [ class "col col-7" ]
+            [ span [ class "h2 bold" ] [ text (toString player.level) ]
+            , btnLevelDecrease player
+            , btnLevelIncrease player
+            ]
         ]
-    ]
 
 
-inputName : Signal.Address Action -> ViewModel -> Html.Html
-inputName address model =
-  input
-    [ class "field-light"
-    , value model.player.name
-    , on "change" targetValue (\str -> Signal.message address (ChangeName model.player.id str))
-    ]
-    []
+btnLevelDecrease : Player -> Html.Html Msg
+btnLevelDecrease player =
+    a [ class "btn ml1 h1", onClick (ChangeLevel player.id -1) ]
+        [ i [ class "fa fa-minus-circle" ] [] ]
+
+
+btnLevelIncrease : Player -> Html.Html Msg
+btnLevelIncrease player =
+    a [ class "btn ml1 h1", onClick (ChangeLevel player.id 1) ]
+        [ i [ class "fa fa-plus-circle" ] [] ]
+
+
+listBtn : Html Msg
+listBtn =
+    button
+        [ class "btn regular"
+        , onClick ShowPlayers
+        ]
+        [ i [ class "fa fa-chevron-left mr1" ] [], text "List" ]
