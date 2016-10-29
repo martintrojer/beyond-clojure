@@ -24,4 +24,4 @@ appInit = makeSnaplet "app" "a player db backend" Nothing $ do
   return $ App d
 
 main :: IO ()
-main = serveSnaplet defaultConfig appInit
+main = serveSnaplet (setPort 8001 defaultConfig) appInit
