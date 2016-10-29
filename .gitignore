@@ -3,3 +3,4 @@
 *.db
 *.log
 .stack-work
+.DS_Store
